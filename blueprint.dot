@@ -1,0 +1,63 @@
+digraph BankingBlueprint {
+    graph [
+        rankdir=LR,
+        bgcolor="#fbfcfe",
+        pad="0.30",
+        nodesep="0.38",
+        ranksep="0.75",
+        splines=ortho,
+        fontname="DejaVu Sans",
+        fontsize=18,
+        label="ONLINE BANKING MANAGEMENT SYSTEM — BLUEPRINT / C STRUCTURES",
+        labelloc=t,
+        labeljust=c
+    ];
+    node [shape=box, style="rounded,filled", fontname="DejaVu Sans", fontsize=10,
+          color="#64748b", fontcolor="#172033", penwidth=1.2, margin="0.16,0.10"];
+    edge [fontname="DejaVu Sans", fontsize=8, color="#64748b", fontcolor="#334155", arrowsize=0.7, penwidth=1.0];
+
+    subgraph cluster_modules {
+        label="C modules";
+        style="rounded,filled";
+        color="#bfdbfe";
+        fillcolor="#eff6ff";
+        client [label="client.c\nCLI menus + input validation", fillcolor="#dbeafe"];
+        net [label="net.c / net.h\nTCP line transport", fillcolor="#dbeafe"];
+        server [label="server.c\nSocket listener + pthread workers\nAuthentication + role checks", fillcolor="#d1fae5"];
+        store [label="store.c\nFile persistence + locks\nWAL + crash recovery", fillcolor="#a7f3d0", penwidth=1.6];
+        client -> net [label="send / receive"];
+        net -> server [label="TCP socket"];
+        server -> store [label="store API calls"];
+    }
+
+    subgraph cluster_records {
+        label="Record structures (bank.h; JournalEntry in store.c)";
+        style="rounded,filled";
+        color="#ddd6fe";
+        fillcolor="#f5f3ff";
+        user [label="User\nid, username, password hash, role\nactive, fullname, account_id", fillcolor="#ede9fe"];
+        account [label="Account\nid, owner1, owner2\nbalance_paise, active, type", fillcolor="#ede9fe"];
+        txn [label="Transaction\nid, from/to account, type, amount\nactor, timestamp, details, journal_id", fillcolor="#ede9fe"];
+        loan [label="Loan\nid, account_id, applicant, amount\nstatus, assigned_to, reviewed_by", fillcolor="#ede9fe"];
+        feedback [label="Feedback\nid, username, message, timestamp", fillcolor="#ede9fe"];
+        journal [label="JournalEntry\nid + PREPARED / COMMITTED\nintended post-balances + transaction data\noptional loan approval state", fillcolor="#fef3c7", color="#d97706"];
+    }
+
+    store -> user [label="users.db"];
+    store -> account [label="accounts.db"];
+    store -> txn [label="transactions.db"];
+    store -> loan [label="loans.db"];
+    store -> feedback [label="feedback.db"];
+    store -> journal [label="journal.db", color="#d97706", fontcolor="#b45309"];
+
+    user -> account [label="account_id / owner username", dir=both, arrowtail=none, arrowhead=vee];
+    account -> txn [label="account IDs", dir=both, arrowtail=none, arrowhead=vee];
+    account -> loan [label="account_id", dir=both, arrowtail=none, arrowhead=vee];
+    user -> feedback [label="username", dir=both, arrowtail=none, arrowhead=vee];
+    journal -> txn [label="journal_id: idempotency", color="#d97706", fontcolor="#b45309"];
+    journal -> account [label="target balance(s)", color="#d97706", fontcolor="#b45309"];
+    journal -> loan [label="optional approval state", color="#d97706", fontcolor="#b45309"];
+
+    note [shape=note, label="Financial transaction invariant\n1. durable PREPARED journal row\n2. persist intended account balance(s)\n3. append transaction exactly once via journal_id\n4. update loan status (if approval)\n5. append COMMITTED marker\nStartup replays PREPARED entries before listening", fillcolor="#fffbeb", color="#fcd34d", fontsize=9];
+    journal -> note [style=dashed, arrowhead=none, color="#d97706"];
+}

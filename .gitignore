@@ -1,0 +1,8 @@
+/server
+/client
+*.o
+/data/
+testdata*/
+final_testdata/
+smoke_data/
+/tests/test_transactions

@@ -1,0 +1,21 @@
+flowchart TD
+    C1[Client terminal 1] -->|TCP socket| S[Server process]
+    C2[Client terminal 2] -->|TCP socket| S
+    C3[Other clients] -->|TCP socket| S
+    S --> A[accept loop]
+    A --> T[pthread worker per client]
+    T --> AUTH[Authentication + active-session check]
+    AUTH --> RBAC[Role-based command dispatcher]
+    RBAC --> STORE[store.c: data access layer]
+    STORE --> U[(users.db)]
+    STORE --> AC[(accounts.db)]
+    STORE --> TX[(transactions.db)]
+    STORE --> L[(loans.db)]
+    STORE --> F[(feedback.db)]
+    STORE --> J[(journal.db: PREPARED / COMMITTED)]
+    STORE -.->|fcntl record locks| U
+    STORE -.->|fcntl record locks| AC
+    STORE -.->|fcntl record locks| TX
+    STORE -.->|fcntl record locks| L
+    STORE -.->|fcntl record locks| F
+    STORE -.->|write-ahead log + startup redo| J

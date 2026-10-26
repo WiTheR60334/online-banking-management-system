@@ -1,0 +1,74 @@
+digraph BankingArchitecture {
+    graph [
+        rankdir=TB,
+        bgcolor="#fbfcfe",
+        pad="0.30",
+        nodesep="0.48",
+        ranksep="0.58",
+        splines=ortho,
+        fontname="DejaVu Sans",
+        fontsize=18,
+        label="ONLINE BANKING MANAGEMENT SYSTEM — ARCHITECTURE",
+        labelloc=t,
+        labeljust=c
+    ];
+    node [shape=box, style="rounded,filled", fontname="DejaVu Sans", fontsize=11,
+          color="#64748b", fontcolor="#172033", penwidth=1.2, margin="0.18,0.12"];
+    edge [fontname="DejaVu Sans", fontsize=9, color="#64748b", fontcolor="#334155", arrowsize=0.75, penwidth=1.1];
+
+    subgraph cluster_clients {
+        label="Client processes";
+        style="rounded,filled";
+        color="#bfdbfe";
+        fillcolor="#eff6ff";
+        c1 [label="Client terminal 1\nCustomer / joint holder", fillcolor="#dbeafe"];
+        c2 [label="Client terminal 2\nEmployee / manager", fillcolor="#dbeafe"];
+        c3 [label="Other client terminals\nConcurrent sessions", fillcolor="#dbeafe"];
+        {rank=same; c1; c2; c3;}
+    }
+
+    subgraph cluster_server {
+        label="Server process";
+        style="rounded,filled";
+        color="#a7f3d0";
+        fillcolor="#ecfdf5";
+        socket [label="TCP socket listener\n127.0.0.1:5555  |  socket · bind · listen · accept", fillcolor="#d1fae5"];
+        workers [label="pthread workers\nOne detached thread per client connection", fillcolor="#d1fae5"];
+        auth [label="Authentication and session control\nPBKDF2 password check · one active session per username", fillcolor="#d1fae5"];
+        roles [label="Role-based request dispatcher\nCustomer · Joint · Employee · Manager · Administrator", fillcolor="#d1fae5"];
+        store [label="Flat-file data access layer  (store.c)\nopen · pread · pwrite · fdatasync · pthread mutexes · fcntl record locks", fillcolor="#bbf7d0", penwidth=1.6];
+        socket -> workers [label="accept()"];
+        workers -> auth [label="TCP request"];
+        auth -> roles [label="authenticated session"];
+        roles -> store [label="authorized operation"];
+    }
+
+    subgraph cluster_files {
+        label="Persistent text records — fixed 1024-byte records";
+        style="rounded,filled";
+        color="#ddd6fe";
+        fillcolor="#f5f3ff";
+        users [shape=cylinder, label="users.db\nUser data + password hashes", fillcolor="#ede9fe"];
+        accounts [shape=cylinder, label="accounts.db\nOwners + balances + status", fillcolor="#ede9fe"];
+        txns [shape=cylinder, label="transactions.db\nOperation + amount + timestamp", fillcolor="#ede9fe"];
+        loans [shape=cylinder, label="loans.db\nApplications + assignment + decision", fillcolor="#ede9fe"];
+        feedback [shape=cylinder, label="feedback.db\nFeedback + timestamp", fillcolor="#ede9fe"];
+        journal [shape=cylinder, label="journal.db\nPREPARED / COMMITTED\nRedo recovery + operation IDs", fillcolor="#fef3c7", color="#d97706"];
+        {rank=same; users; accounts; txns; loans; feedback;}
+        {rank=sink; journal;}
+    }
+
+    c1 -> socket [label="TCP socket", color="#2563eb", fontcolor="#1d4ed8", penwidth=1.4];
+    c2 -> socket [label="TCP socket", color="#2563eb", fontcolor="#1d4ed8", penwidth=1.4];
+    c3 -> socket [label="TCP socket", color="#2563eb", fontcolor="#1d4ed8", penwidth=1.4];
+    store -> users [label="fcntl R/W lock", color="#7c3aed", fontcolor="#6d28d9"];
+    store -> accounts [label="fcntl R/W lock", color="#7c3aed", fontcolor="#6d28d9"];
+    store -> txns [label="append + lock", color="#7c3aed", fontcolor="#6d28d9"];
+    store -> loans [label="record lock", color="#7c3aed", fontcolor="#6d28d9"];
+    store -> feedback [label="record lock", color="#7c3aed", fontcolor="#6d28d9"];
+    store -> journal [label="WAL + startup redo", color="#d97706", fontcolor="#b45309", penwidth=1.5];
+
+    note [shape=note, label="CRITICAL SECTIONS\nRead-only lookups → F_RDLCK\nDeposit / withdrawal / transfer → F_WRLCK\nTransfers lock both account records in stable order\nPer-file mutexes protect threads; fcntl locks coordinate file access", fillcolor="#fffbeb", color="#fcd34d", fontsize=10];
+    {rank=same; note; users; accounts; txns; loans; feedback;}
+    store -> note [style=dashed, arrowhead=none, color="#d97706"];
+}
